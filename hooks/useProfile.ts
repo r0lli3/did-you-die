@@ -1,29 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import { UserProfile, EmergencyContact } from '../lib/types';
 import {
-  getUserProfile,
+  getOrCreateProfile,
   saveUserProfile,
   getEmergencyContact,
   saveEmergencyContact,
-  isOnboardingComplete,
 } from '../lib/storage';
 
 export function useProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [contact, setContact] = useState<EmergencyContact | null>(null);
-  const [onboarded, setOnboarded] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [p, c, o] = await Promise.all([
-      getUserProfile(),
+    const [p, c] = await Promise.all([
+      getOrCreateProfile(),
       getEmergencyContact(),
-      isOnboardingComplete(),
     ]);
     setProfile(p);
     setContact(c);
-    setOnboarded(o);
     setLoading(false);
   }, []);
 
@@ -46,7 +42,6 @@ export function useProfile() {
   return {
     profile,
     contact,
-    onboarded,
     loading,
     updateProfile,
     updateContact,

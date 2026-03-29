@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { UserProfile, EmergencyContact, CheckIn, NotificationEvent } from './types';
 import { STORAGE_KEYS } from '../constants/config';
 
@@ -11,6 +12,27 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
+}
+
+export async function getOrCreateProfile(): Promise<UserProfile> {
+  const existing = await getUserProfile();
+  if (existing) return existing;
+
+  const deviceId =
+    (Constants.easConfig as any)?.projectId ||
+    String(Date.now());
+
+  const fresh: UserProfile = {
+    id: deviceId,
+    firstName: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    checkInTime: '09:00',
+    onboardingComplete: true,
+    createdAt: new Date().toISOString(),
+  };
+
+  await saveUserProfile(fresh);
+  return fresh;
 }
 
 // --- Emergency Contact ---
