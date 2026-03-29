@@ -1,10 +1,9 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { isOnboardingComplete } from '../lib/storage';
 import { Colors } from '../constants/colors';
 
 export { ErrorBoundary } from 'expo-router';
@@ -15,37 +14,18 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     ...FontAwesome.font,
   });
-  const [onboarded, setOnboarded] = useState<boolean | null>(null);
-  const router = useRouter();
-  const segments = useSegments();
 
   useEffect(() => {
     if (fontError) throw fontError;
   }, [fontError]);
 
   useEffect(() => {
-    isOnboardingComplete().then(setOnboarded);
-  }, []);
-
-  useEffect(() => {
-    if (fontsLoaded && onboarded !== null) {
+    if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, onboarded]);
+  }, [fontsLoaded]);
 
-  useEffect(() => {
-    if (onboarded === null || !fontsLoaded) return;
-
-    const inOnboarding = segments[0] === 'onboarding';
-
-    if (!onboarded && !inOnboarding) {
-      router.replace('/onboarding');
-    } else if (onboarded && inOnboarding) {
-      router.replace('/(tabs)');
-    }
-  }, [onboarded, segments, fontsLoaded]);
-
-  if (!fontsLoaded || onboarded === null) {
+  if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
         <ActivityIndicator size="large" color={Colors.textSecondary} />
@@ -56,7 +36,6 @@ export default function RootLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="onboarding" />
     </Stack>
   );
 }
