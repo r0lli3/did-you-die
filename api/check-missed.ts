@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getDb } from './db';
+import { Resend } from 'resend';
 
 const MISSED_DAYS_THRESHOLD = 2;
 
@@ -75,11 +76,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ON CONFLICT (user_id, date, type) DO NOTHING
             `;
 
-            // TODO: Send actual SMS/email via Twilio/SendGrid
-            console.log(
-              `ALERT: ${user.first_name} missed ${missedDays} days. ` +
-              `Notifying ${contact.name} at ${contact.email} / ${contact.phone}`
-            );
+            // Send email via Resend
+            try {
+              const resend = new Resend(process.env.RESEND_API_KEY);
+              await resend.emails.send({
+                from: 'Did You Die <onboarding@resend.dev>',
+                to: contact.email,
+                subject: `Check-in alert for ${user.first_name}`,
+                text: [
+                  `Hi ${contact.name},`,
+                  '',
+                  `This is an automated alert from Did You Die.`,
+                  '',
+                  `${user.first_name} has not checked in for ${missedDays} day${missedDays === 1 ? '' : 's'}.`,
+                  `If this is unexpected, you may want to reach out to them.`,
+                  '',
+                  `— Did You Die`,
+                ].join('\n'),
+              });
+              console.log(`Email sent to ${contact.email} for user ${user.first_name}`);
+            } catch (emailErr) {
+              console.error(`Failed to send email for user ${user.first_name}:`, emailErr);
+            }
 
             alerts.push({
               user: user.first_name,
