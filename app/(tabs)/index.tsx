@@ -32,6 +32,8 @@ export default function HomeScreen() {
 
   const [name, setName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
+  const [nameFocused, setNameFocused] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Sync local state when profile loads
@@ -108,7 +110,9 @@ export default function HomeScreen() {
             placeholderTextColor={Colors.textTertiary}
             value={name}
             onChangeText={setName}
-            onBlur={handleNameBlur}
+            onFocus={() => setNameFocused(true)}
+            onBlur={() => { setNameFocused(false); handleNameBlur(); }}
+            secureTextEntry={!nameFocused && name.length > 0}
             returnKeyType="done"
           />
           <TextInput
@@ -117,7 +121,9 @@ export default function HomeScreen() {
             placeholderTextColor={Colors.textTertiary}
             value={contactEmail}
             onChangeText={setContactEmail}
-            onBlur={handleContactEmailBlur}
+            onFocus={() => setEmailFocused(true)}
+            onBlur={() => { setEmailFocused(false); handleContactEmailBlur(); }}
+            secureTextEntry={!emailFocused && contactEmail.length > 0}
             keyboardType="email-address"
             autoCapitalize="none"
             returnKeyType="done"
