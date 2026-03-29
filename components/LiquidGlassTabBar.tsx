@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
-  index: { active: 'heart', inactive: 'heart-outline' },
+  index: { active: 'home', inactive: 'home-outline' },
   history: { active: 'calendar', inactive: 'calendar-outline' },
 };
 
