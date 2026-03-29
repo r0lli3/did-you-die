@@ -1,29 +1,27 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
-  RefreshControl,
+  TouchableOpacity,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
 import { useProfile } from '../../hooks/useProfile';
 import { useCheckIn } from '../../hooks/useCheckIn';
-import { CheckInButton } from '../../components/CheckInButton';
-import { StreakCounter } from '../../components/StreakCounter';
-import { WeeklyHistory } from '../../components/WeeklyHistory';
-import { NextReminder } from '../../components/NextReminder';
-import { EmergencyContactCard } from '../../components/EmergencyContactCard';
 
 export default function HomeScreen() {
-  const { profile, contact, reload: reloadProfile } = useProfile();
+  const { profile, contact, updateProfile, updateContact, reload: reloadProfile } = useProfile();
   const {
     todayCheckedIn,
     checkIn,
     streak,
-    weekRecords,
     loading,
     reload: reloadCheckIn,
   } = useCheckIn(
@@ -32,7 +30,40 @@ export default function HomeScreen() {
     profile?.id
   );
 
-  // Reload data when the tab comes into focus
+  const [name, setName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Sync local state when profile loads
+  useEffect(() => {
+    if (profile) setName(profile.firstName);
+  }, [profile?.firstName]);
+
+  useEffect(() => {
+    if (contact) setContactEmail(contact.email);
+  }, [contact?.email]);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    Notifications.requestPermissionsAsync();
+  }, []);
+
+  // Pulse animation for the button when not checked in
+  useEffect(() => {
+    if (todayCheckedIn) {
+      pulseAnim.setValue(1);
+      return;
+    }
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.06, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [todayCheckedIn]);
+
   useFocusEffect(
     useCallback(() => {
       reloadProfile();
@@ -40,93 +71,158 @@ export default function HomeScreen() {
     }, [])
   );
 
-  const onRefresh = useCallback(async () => {
-    await Promise.all([reloadProfile(), reloadCheckIn()]);
-  }, [reloadProfile, reloadCheckIn]);
+  const handleNameBlur = useCallback(async () => {
+    if (profile && name !== profile.firstName) {
+      await updateProfile({ firstName: name });
+    }
+  }, [profile, name, updateProfile]);
 
-  if (!profile) return null;
+  const handleContactEmailBlur = useCallback(async () => {
+    const trimmed = contactEmail.trim();
+    if (!trimmed) return;
+    const current = contact?.email || '';
+    if (trimmed !== current) {
+      await updateContact({
+        name: contact?.name || '',
+        relationship: contact?.relationship || '',
+        phone: contact?.phone || '',
+        email: trimmed,
+      });
+    }
+  }, [contact, contactEmail, updateContact]);
+
+  const handleCheckIn = useCallback(async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await checkIn();
+  }, [checkIn]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={Colors.textTertiary} />
-        }
-      >
-        {/* Greeting */}
-        <Text style={styles.greeting}>
-          {getGreeting()}, {profile.firstName}
-        </Text>
+      <View style={styles.inner}>
 
-        {/* Streak */}
-        <StreakCounter streak={streak} />
-
-        {/* Check-in button */}
-        <View style={styles.section}>
-          <CheckInButton checkedIn={todayCheckedIn} onPress={checkIn} />
-        </View>
-
-        {/* Next reminder */}
-        <View style={styles.section}>
-          <NextReminder
-            checkInTime={profile.checkInTime}
-            checkedIn={todayCheckedIn}
+        {/* Inline editable fields */}
+        <View style={styles.fields}>
+          <TextInput
+            style={styles.fieldInput}
+            placeholder="Your name"
+            placeholderTextColor={Colors.textTertiary}
+            value={name}
+            onChangeText={setName}
+            onBlur={handleNameBlur}
+            returnKeyType="done"
+          />
+          <TextInput
+            style={styles.fieldInput}
+            placeholder="Emergency contact's email"
+            placeholderTextColor={Colors.textTertiary}
+            value={contactEmail}
+            onChangeText={setContactEmail}
+            onBlur={handleContactEmailBlur}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            returnKeyType="done"
           />
         </View>
 
-        {/* Weekly history */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Last 7 days</Text>
-          <WeeklyHistory records={weekRecords} />
+        {/* Big check-in button */}
+        <View style={styles.buttonWrapper}>
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <TouchableOpacity
+              style={[styles.checkInButton, todayCheckedIn && styles.checkInButtonDone]}
+              onPress={handleCheckIn}
+              disabled={todayCheckedIn || loading}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.checkInIcon}>{todayCheckedIn ? '✓' : '👻'}</Text>
+              <Text style={styles.checkInLabel}>
+                {todayCheckedIn ? 'Still alive' : 'Check in today'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Streak */}
+          {streak > 0 && (
+            <Text style={styles.streak}>🔥 {streak} day{streak === 1 ? '' : 's'} streak</Text>
+          )}
         </View>
 
-        {/* Emergency contact */}
-        {contact && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Emergency contact</Text>
-            <EmergencyContactCard contact={contact} />
-          </View>
-        )}
-      </ScrollView>
+        {/* Disclaimer */}
+        <Text style={styles.disclaimer}>
+          If you haven't checked in for 2 days, the system will send an email to your emergency contact.
+        </Text>
+
+      </View>
     </SafeAreaView>
   );
 }
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
-}
+const BUTTON_SIZE = 220;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
   },
-  scroll: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 32,
+  inner: {
+    flex: 1,
+    paddingHorizontal: 28,
+    paddingTop: 28,
+    paddingBottom: 24,
+    justifyContent: 'space-between',
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: '700',
+  fields: {
+    gap: 16,
+  },
+  fieldInput: {
+    fontSize: 16,
     color: Colors.textPrimary,
-    letterSpacing: -0.3,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+  },
+  buttonWrapper: {
+    alignItems: 'center',
+    gap: 20,
+  },
+  checkInButton: {
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    backgroundColor: '#2DB54B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2DB54B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  checkInButtonDone: {
+    backgroundColor: '#C8C8C8',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+  },
+  checkInIcon: {
+    fontSize: 44,
     marginBottom: 8,
   },
-  section: {
-    marginTop: 20,
+  checkInLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: -0.2,
   },
-  sectionTitle: {
-    fontSize: 14,
+  streak: {
+    fontSize: 15,
     fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  disclaimer: {
+    fontSize: 13,
     color: Colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    textAlign: 'center',
+    lineHeight: 19,
+    paddingHorizontal: 8,
   },
 });
