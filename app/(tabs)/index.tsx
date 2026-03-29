@@ -2,7 +2,6 @@ import { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   SafeAreaView,
   TouchableOpacity,
@@ -15,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
 import { useProfile } from '../../hooks/useProfile';
 import { useCheckIn } from '../../hooks/useCheckIn';
+import { AnimatedLabelInput } from '../../components/AnimatedLabelInput';
 
 export default function HomeScreen() {
   const { profile, contact, updateProfile, updateContact, reload: reloadProfile } = useProfile();
@@ -32,8 +32,6 @@ export default function HomeScreen() {
 
   const [name, setName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
-  const [nameFocused, setNameFocused] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Sync local state when profile loads
@@ -104,26 +102,18 @@ export default function HomeScreen() {
 
         {/* Inline editable fields */}
         <View style={styles.fields}>
-          <TextInput
-            style={styles.fieldInput}
-            placeholder="Your name"
-            placeholderTextColor={Colors.textTertiary}
+          <AnimatedLabelInput
+            label="Your name"
             value={name}
             onChangeText={setName}
-            onFocus={() => setNameFocused(true)}
-            onBlur={() => { setNameFocused(false); handleNameBlur(); }}
-            secureTextEntry={!nameFocused && name.length > 0}
+            onBlur={handleNameBlur}
             returnKeyType="done"
           />
-          <TextInput
-            style={styles.fieldInput}
-            placeholder="Emergency contact's email"
-            placeholderTextColor={Colors.textTertiary}
+          <AnimatedLabelInput
+            label="Emergency contact's email"
             value={contactEmail}
             onChangeText={setContactEmail}
-            onFocus={() => setEmailFocused(true)}
-            onBlur={() => { setEmailFocused(false); handleContactEmailBlur(); }}
-            secureTextEntry={!emailFocused && contactEmail.length > 0}
+            onBlur={handleContactEmailBlur}
             keyboardType="email-address"
             autoCapitalize="none"
             returnKeyType="done"
@@ -177,15 +167,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   fields: {
-    gap: 16,
-  },
-  fieldInput: {
-    fontSize: 16,
-    color: Colors.textPrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    paddingVertical: 8,
-    paddingHorizontal: 2,
+    gap: 20,
   },
   buttonWrapper: {
     alignItems: 'center',
