@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 28,
     paddingTop: 28,
-    paddingBottom: 24,
+    paddingBottom: 100,
     justifyContent: 'space-between',
   },
   fields: {
